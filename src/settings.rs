@@ -546,6 +546,9 @@ pub struct Settings {
     pub window_y: Option<f32>,
     /// Whether the window was maximized when it last closed.
     pub window_maximized: bool,
+    /// Whether the chat list was hidden (Ctrl+B), so the next window and the
+    /// next launch open with it as it was left.
+    pub chat_list_hidden: bool,
 }
 
 impl Default for Settings {
@@ -603,6 +606,7 @@ impl Default for Settings {
             window_x: None,
             window_y: None,
             window_maximized: false,
+            chat_list_hidden: false,
         }
     }
 }
@@ -1090,6 +1094,7 @@ mod tests {
         assert_eq!(parsed.window_x, None);
         assert_eq!(parsed.window_y, None);
         assert!(!parsed.window_maximized);
+        assert!(!parsed.chat_list_hidden);
     }
 
     #[test]
