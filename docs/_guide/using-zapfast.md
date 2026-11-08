@@ -20,6 +20,8 @@ Enter sends and Shift+Enter adds a line. Turn off **Enter sends** in Settings
 to make Enter add a line and send with Ctrl+Enter (Command+Enter on macOS).
 After five seconds without input, the text cursor stays visible without
 blinking; it starts blinking again when you use the window.
+Clicking empty space in a chat, beside or below the messages, keeps the text
+cursor in the composer, so you can carry on typing.
 The emoji picker stays open while you choose emoji and closes when you send
 the text.
 `*bold*`, `_italic_`, `~strike~`, and ```` ```monospace ```` ```` format
