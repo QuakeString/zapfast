@@ -1541,6 +1541,7 @@ impl App {
         // With a password set, ZapFast starts locked.
         let app_lock = crate::app_lock::AppLock::new(settings.app_lock_hash.is_some());
         let tray_lockable = settings.app_lock_hash.is_some();
+        let sidebar_visible = !settings.chat_list_hidden;
         let mut app = Self {
             dirs,
             settings,
@@ -1694,7 +1695,7 @@ impl App {
             group_name_edit: None,
             group_description_edit: None,
             new_contact_to_phone: true,
-            sidebar_visible: true,
+            sidebar_visible,
             #[cfg(any(test, feature = "demo"))]
             open_list_menu: None,
             label_name: String::new(),
@@ -7078,10 +7079,16 @@ impl App {
     /// Remembers the window's size, position and maximized state in the
     /// settings, in logical pixels, so a window saved while zoomed opens at
     /// the same size; see [`fastframe_shell::window::Geometry`].
+    /// Also remembers whether the chat list is hidden, which many actions
+    /// change, so the next launch opens the window as it was left.
     fn sync_window_state(&mut self, ctx: &egui::Context) {
         let mut geometry = self.settings.window_geometry();
         if geometry.remember(ctx) {
             self.settings.set_window_geometry(geometry);
+            self.mark_settings_dirty();
+        }
+        if self.settings.chat_list_hidden == self.sidebar_visible {
+            self.settings.chat_list_hidden = !self.sidebar_visible;
             self.mark_settings_dirty();
         }
     }
@@ -15856,6 +15863,34 @@ mod tests {
         app.settings_dirty = false;
         run(&mut app, rect);
         assert!(!app.settings_dirty, "nothing changed, nothing to save");
+    }
+
+    /// A hidden chat list is remembered in the logic pass and comes back
+    /// hidden in the next launch.
+    #[test]
+    fn a_hidden_chat_list_stays_hidden_across_launches() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let run = |app: &mut App| {
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| app.window_logic(ui.ctx()));
+            output.textures_delta.clear();
+        };
+        run(&mut app);
+        app.settings_dirty = false;
+        app.apply(Action::ToggleSidebar, &ctx);
+        run(&mut app);
+        assert!(app.settings.chat_list_hidden);
+        assert!(app.settings_dirty);
+
+        let root = tempfile::tempdir().unwrap();
+        let (next, _events) = App::headless(AppDirs::under(root.path()), app.settings.clone());
+        assert!(!next.sidebar_visible);
+
+        app.settings_dirty = false;
+        app.apply(Action::ToggleSidebar, &ctx);
+        run(&mut app);
+        assert!(!app.settings.chat_list_hidden);
+        assert!(app.settings_dirty);
     }
 
     /// A short chat asks the phone by itself; only the reader scrolling to

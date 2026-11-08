@@ -354,7 +354,12 @@ fn run() -> eframe::Result<()> {
     {
         log::warn!("could not set the Dock icon: {error}");
     }
-    let demo_persistence = demo.then(|| dirs.state.join("window.ron"));
+    // eframe's storage file. Nothing writes it (see `native_options`), so the
+    // window opens from the settings alone, not from an older version's
+    // window in eframe's default app.ron.
+    let eframe_storage = dirs
+        .state
+        .join(if demo { "window.ron" } else { "eframe.ron" });
 
     #[allow(unused_mut)]
     let mut app = if demo {
@@ -446,7 +451,7 @@ fn run() -> eframe::Result<()> {
                 )
             });
             zapfast::backdrop::set_window_transparent(transparent);
-            let geometry = if demo_persistence.is_some() {
+            let geometry = if demo {
                 fastframe_shell::window::Geometry::default()
             } else {
                 lease.peek(|app: &app::App| app.settings.window_geometry())
@@ -469,7 +474,7 @@ fn run() -> eframe::Result<()> {
             });
             eframe::run_native(
                 "ZapFast",
-                native_options(demo_persistence.clone(), geometry, transparent),
+                native_options(demo, eframe_storage.clone(), geometry, transparent),
                 Box::new(move |cc| {
                     let mut app = lease.take(&cc.egui_ctx);
                     app.attach(&cc.egui_ctx);
@@ -607,12 +612,12 @@ fn tour_script(name: &str) -> zapfast::demo::tour::Script {
 }
 
 fn native_options(
-    demo_persistence: Option<std::path::PathBuf>,
+    demo: bool,
+    storage: std::path::PathBuf,
     geometry: fastframe_shell::window::Geometry,
     transparent: bool,
 ) -> eframe::NativeOptions {
     let default_size = demo_size_arg().unwrap_or([1180.0, 780.0]);
-    let demo = demo_persistence.is_some();
     let viewport = egui::ViewportBuilder::default()
         .with_title(if demo { "ZapFast Demo" } else { "ZapFast" })
         .with_app_id(if demo {
@@ -646,12 +651,18 @@ fn native_options(
         .with_decorations(!fastframe_titlebar::enabled());
     eframe::NativeOptions {
         viewport,
-        persistence_path: demo_persistence,
         // The settings remember the window (fastframe_shell::window::Geometry),
         // in logical pixels. eframe's own copy is in points at the zoom of the
         // time, and opened smaller at every launch with the interface zoomed,
         // since its zoom comes back only once the window exists.
         persist_window: false,
+        // eframe still loads a window (and egui's memory) from its storage at
+        // every start, whatever `persist_window` says, and that window beats
+        // the remembered one. Versions before 0.20 saved one in the default
+        // app.ron, which nothing updates any more, so every window opened at
+        // that stale size. A file of our own, which eframe never writes with
+        // both kinds of persistence off, holds none.
+        persistence_path: Some(storage),
         ..Default::default()
     }
 }
